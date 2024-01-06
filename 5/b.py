@@ -23,15 +23,6 @@ class Range:
     def __eq__(self, other):
         return repr(self) == repr(other)
 
-    def strait_range(self, dist_range):
-        dist_start = dist_range.src_start
-        src_start = max(dist_range.src_start - self.diff, self.src_start)
-        stop = min((dist_range.src_stop - self.diff, self.dist_stop, self.src_stop))
-        length = stop - src_start
-        if length < 0:
-            length = 0
-        return Range(dist_start, src_start, length)
-
     def dist_number(self, src_number: int) -> int:
         """use ONLY if this range contains src_number"""
 
@@ -60,28 +51,28 @@ class Converter:
         return src_number
 
 
-def ranges_to_get_here(dist_range: Range, c: Converter) -> list[Range]:
-    result = []
+def create_range(src_start: int, src_stop: int, diff: int) -> Range:
+    return Range(src_start + diff, src_start, src_stop - src_start)
 
-    start_range = Range(dist_range.src_start, dist_range.src_start, c.ranges[0].src_start - dist_range.src_start)
+
+def skiping_ranges(r: Range, c: Converter) -> list[Range]:
+    result = []
+    start_range = create_range(r.src_start, c.ranges[0].src_start - r.diff, r.diff)
     if not start_range.is_empty():
         result.append(start_range)
 
-    for r in c.ranges:
-        sr = r.strait_range(dist_range)
-        if sr.is_empty():
-            continue
+    for cr in c.ranges:
+        mid_range = create_range(max(r.src_start, cr.src_start - r.diff), min(r.src_stop, cr.src_stop - r.diff), r.diff + cr.diff)
+        if not mid_range.is_empty():
+            result.append(mid_range)
 
-        result.append(sr)
-
-    end_range = Range(c.ranges[-1].src_stop, c.ranges[-1].src_stop, dist_range.src_stop - c.ranges[-1].src_stop)
+    end_range = create_range(max(c.ranges[-1].src_stop - r.diff, r.src_start), r.src_stop, r.diff)
     if not end_range.is_empty():
         result.append(end_range)
-
     return result
 
 
-with open('tinp', 'r') as f:
+with open('inp', 'r') as f:
     allblocks = f.read().split('\n\n')
 
 seeds_block = allblocks[0]
@@ -92,82 +83,21 @@ raw_seed_ranges = list(map(int, seeds_block.split()[1:]))
 for i in range(0, len(raw_seed_ranges), 2):
     range_start = raw_seed_ranges[i]
     length = raw_seed_ranges[i + 1]
-    seed_ranges.append(Range(range_start, range_start, range_start + length))
+    seed_ranges.append(create_range(range_start, range_start + length, 0))
 
 
 converters = [Converter(block) for block in blocks]
 
-# strait_ranges = converters[-1].ranges
-# start_range = Range(0, 0, strait_ranges[0].src_start)
-# if start_range:
-#     strait_ranges = [start_range] + strait_ranges
-strait_ranges = [Range(0, 0, 999999999999999999999)]
 
-for c in reversed(converters):
-    new_ranges = []
-    for sr in strait_ranges:
-        rtgh = ranges_to_get_here(sr, c)
-        new_ranges += rtgh
-
-    new_ranges = list(set(new_ranges))
-    print(f"ranges to get from {c.ranges} to the end:\n{new_ranges}")
-    strait_ranges = new_ranges
-
-
-strait_ranges.sort(key=lambda r: r.dist_start)
-print(strait_ranges)
-
-x = 82
-for sr in strait_ranges:
-    if x in sr:
-        print(f"counted X: {sr.dist_number(x)}")
+rs = seed_ranges
 for c in converters:
-    x = c.convert(x)
-print(f"TRUE X: {x}")
+    new_rs = []
+    for r in rs:
+        new_rs += skiping_ranges(r, c)
+    rs = new_rs
 
-# for sr in strait_ranges:
-#     for seed_range in seed_ranges:
-#         sr_to_seed = seed_range.strait_range(sr)
-#         print(sr_to_seed)
+lowest = 9999999999999999999999999999999
+for r in rs:
+    lowest = min(lowest, r.dist_start)
 
-
-
-
-
-
-# lowest_location = 9999999999999999999999999999999999999999
-# for seed_range in seed_ranges:
-#     for seed in range(*seed_range):
-#         number = seed
-#         for c in converters:
-#             number = c.convert(number)
-#         lowest_location = min(lowest_location, number)
-
-# print(f"lowest location is {lowest_location}")
-
-
-
-# 0-10 -> 5-15 => 1-11 -> 7-17 => 2-12 -> 8-18
-
-'''
-we wanna get 8-18 so we wanna insert 2-12 into last one
-we wanna get 2-12 from middel, so we should insert ...
-we can get 7-12 from middle, we can't get 2, becouse 2 becomes 8 in middle one
-so we sould insert ... to get 2-12
-12 - 7 = 5 is a max value, 6 becomes 12, so it's bigger them our range
-so `stop` of insert range will be 6
-0 is too smol, it can't get into 1-11 range, so min value is 1
-1-6 is our range
-
-
-
-if 0-10 -> 1-11 => 3-5
-2-4
-if 0-10 -> 5-15 => 3-9
-0-4
-
-
-
-
-
-'''
+print(lowest)
