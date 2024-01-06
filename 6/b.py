@@ -13,8 +13,8 @@ def count_wins(game: tuple[int]) -> int:
 with open('inp', 'r') as f:
     lines = f.read().splitlines()
 
-times = list(map(int, lines[0].split()[1:]))
-distances = list(map(int, lines[1].split()[1:]))
+times = [int("".join(lines[0].split()[1:]))]
+distances = [int("".join(lines[1].split()[1:]))]
 games = zip(times, distances)
 
 result = 1
