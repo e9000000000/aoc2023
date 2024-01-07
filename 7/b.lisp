@@ -17,18 +17,25 @@
    (lambda (x) (equal x ""))
    (hidden-split a ch)))
 
-(defun add-card-value (counts i)
-  (nconc (nconc (subseq counts 0 i) (list (list (nth 0 (nth i counts)) (+ (nth 1 (nth i counts)) 1)))) (subseq counts (+ i 1))))
+(defun add-card-value (counts i amount)
+  (nconc
+   (nconc
+    (subseq counts 0 i)
+    (list (list
+           (nth 0 (nth i counts))
+           (+ (nth 1 (nth i counts)) amount))))
+   (subseq counts (+ i 1))))
 
 (defun count-cards* (hand counts)
   (if (= (length hand) 0)
       counts
       (let ((ch (char hand 0))
             (hand-tail (subseq hand 1)))
-        (let ((pos (position-if (lambda (count) (equal (nth 0 count) ch)) counts)))
+        (let ((pos (position-if (lambda (count) (equal (car count) ch)) counts))
+              (add-amount (if (equal ch #\J) 0 1)))
           (if (null pos)
-              (count-cards* hand-tail (nconc counts (list (list ch 1))))
-              (count-cards* hand-tail (add-card-value counts pos)))))))
+              (count-cards* hand-tail (nconc counts (list (list ch add-amount))))
+              (count-cards* hand-tail (add-card-value counts pos add-amount)))))))
 
 (defun count-cards (hand)
   (sort
@@ -36,24 +43,34 @@
    (lambda (x y) (> x y))
    :key (lambda (x) (nth 1 x))))
 
+(defun count-jockers (hand)
+  (reduce
+   #'+
+   (mapcar
+    (lambda (x) (if (equal x #\J) 1 0))
+    (loop for i from 0 to (- (length hand) 1) collect (char hand i)))))
+
 (defun type-score (hand)
-  (let ((counts (mapcar (lambda (x) (nth 1 x)) (count-cards hand))))
-    (if (= (nth 0 counts) 5)
-        9
-        (if (= (nth 0 counts) 4)
-            8
-            (if (and (= (nth 0 counts) 3) (= (nth 1 counts) 2))
-                6
-                (if (= (nth 0 counts) 3)
-                    5
-                    (if (and (= (nth 0 counts) 2) (= (nth 1 counts) 2))
-                        3
-                        (if (= (nth 0 counts) 2)
-                            1
-                            0))))))))
+  (let ((counts (mapcar (lambda (x) (nth 1 x)) (count-cards hand)))
+        (jockers (count-jockers hand)))
+    (let ((first (+ (car counts) jockers)))
+      (if (= first 5)
+          9
+          (if (= first 4)
+              8
+              (if (and (= first 3) (= (nth 1 counts) 2))
+                  6
+                  (if (= first 3)
+                      5
+                      (if (and (= first 2) (= (nth 1 counts) 2))
+                          3
+                          (if (= first 2)
+                              1
+                              0)))))))))
 
 (defun card-score (ch)
-  (cond ((equal ch #\2) 2)
+  (cond ((equal ch #\J) 1)
+        ((equal ch #\2) 2)
         ((equal ch #\3) 3)
         ((equal ch #\4) 4)
         ((equal ch #\5) 5)
@@ -62,7 +79,6 @@
         ((equal ch #\8) 8)
         ((equal ch #\9) 9)
         ((equal ch #\T) 10)
-        ((equal ch #\J) 11)
         ((equal ch #\Q) 12)
         ((equal ch #\K) 13)
         ((equal ch #\A) 14)))
@@ -87,4 +103,5 @@
 (defvar winings (loop for i from 0 and x in sorted-hands
                       collect (* (+ i 1) (parse-integer (nth 1 x)))))
 
+(print sorted-hands)
 (print (reduce #'+ winings))
